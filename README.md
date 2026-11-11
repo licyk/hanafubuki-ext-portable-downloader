@@ -25,9 +25,11 @@ as an instance you can open right away.
   is installed, otherwise requests), resume after an interruption, and can be
   cancelled at any step. Progress shows on the page and in the Task Center.
 - **Extract and register**: the archive is extracted with
-  sd_webui_all_in_one's archive manager (7z through py7zr) into the folder you
-  chose, optionally deleted, and the extracted package is registered with the
-  application's discovery. **Open** takes you to the new instance.
+  sd_webui_all_in_one's archive manager (7z through py7zr), or a `.7z` with
+  7-Zip where py7zr is not installed (see [Requirements](#requirements)), into
+  the folder you chose, optionally deleted, and the extracted package is
+  registered with the application's discovery. **Open** takes you to the new
+  instance.
 
 ## Requirements
 
@@ -45,10 +47,23 @@ The backend's Python requirements are installed by the application into the
 extension's data directory when it is turned on: `requests`, and on Windows
 `py7zr` for the `.7z` packages. py7zr is not asked for on Python 3.15 (the
 application's default), where its codecs publish no wheels and would need a
-compiler; there a `.7z` package is refused with that reason unless extracting
-after download is turned off, and is then left in the folder to extract by
-hand. The Linux and macOS packages are
-`.tar.gz` and need nothing.
+compiler. There a `.7z` package is extracted by 7-Zip's command line, as the
+original downloader extracted it:
+
+1. `7za`, `7z` or `7zz` on `PATH`, or `7z.exe` in 7-Zip's Program Files folder
+   on Windows;
+2. otherwise, on Windows (x64 and ARM64), the original downloader's standalone
+   `7za.exe` (7-Zip 26.00), downloaded once from ModelScope
+   (`licyks/sd-webui-all-in-one`, `7za/windows/<arch>/7za.exe`, at a pinned
+   revision) into the data directory's `tools/`, and used only when its size
+   and SHA-256 match and it runs;
+3. on Linux and macOS there is no download: install 7-Zip (the `7zip` or
+   `p7zip-full` package, or `brew install sevenzip`).
+
+The tool is found before the package is downloaded. When neither py7zr nor
+7-Zip can be had, a `.7z` package is refused with that reason unless extracting
+after download is turned off, and is then left in the folder to extract by hand.
+The Linux and macOS packages are `.tar.gz` and need neither.
 
 ## Install
 
@@ -86,7 +101,7 @@ extracting, and the default folder.
 ```
 backend/                 the backend (Python, run by the application on its managed Python)
   main.py                entry point; keeps file descriptor 1 for the protocol
-  portable_downloader/   catalog, GPU, queue, pipeline, extraction child, handler
+  portable_downloader/   catalog, GPU, queue, pipeline, extraction child, 7-Zip, handler
 schemas/settings.json    the Settings form
 locales/                 the Settings strings (en, zh)
 ui/                      the built page (committed)
@@ -126,7 +141,9 @@ python -m ty check --python "$(command -v python)" backend tests
 They read a recorded `portable_list.json`, serve mirrors and archives (zip,
 tar.gz, 7z) from a local HTTP server, run whole jobs through the real
 `download_file` and `extract_archive` against a stand-in host, and run
-`backend/main.py` over the protocol. `PORTABLE_DOWNLOADER_LIST_URLS`
+`backend/main.py` over the protocol. The 7-Zip fallback runs against a
+stand-in script that speaks 7-Zip's command line and progress (POSIX only),
+and against a real `7za`/`7z`/`7zz` when one is on `PATH`. `PORTABLE_DOWNLOADER_LIST_URLS`
 (comma-separated) replaces the list's mirrors for the tests; the application
 starts the backend in a clean environment, so it never reaches an installed
 extension.
@@ -150,8 +167,16 @@ or caches.
 - **功能**：从多个镜像获取并缓存整合包列表（离线时显示上次的列表）；可选
   ModelScope / Hugging Face 下载源和夜间构建版 / 稳定版；根据整合包标识提示显卡
   兼容性；按顺序逐个下载（aria2 或 requests，支持断点续传与取消）；使用
-  sd_webui_all_in_one 解压（7z 通过 py7zr：仅 Windows 且 Python 低于 3.15 时安装，应用默认的 Python 3.15 上无法解压 7z 整合包，需关闭“下载后解压”并手动解压），可选解压后删除压缩包；解压后通过应用的
-  实例发现功能注册实例，并可一键打开。
+  sd_webui_all_in_one 解压，可选解压后删除压缩包；解压后通过应用的实例发现功能注册实例，
+  并可一键打开。
+- **7z 整合包**：py7zr 仅在 Windows 且 Python 低于 3.15 时安装。应用默认的 Python 3.15
+  上改用 7-Zip 命令行解压：优先使用 `PATH` 中的 `7za`、`7z` 或 `7zz`（Windows 上还会查找
+  Program Files 下的 `7-Zip\7z.exe`）；找不到时，Windows（x64 与 ARM64）会从 ModelScope
+  （`licyks/sd-webui-all-in-one` 的 `7za/windows/<架构>/7za.exe`，固定版本）下载原下载器使用的
+  `7za.exe`（7-Zip 26.00）到扩展数据目录的 `tools/` 中，仅下载一次，并校验大小、SHA-256
+  且能正常运行后才使用；Linux 与 macOS 不会下载，请安装 7-Zip（`7zip` 或 `p7zip-full`
+  软件包，或 `brew install sevenzip`）。Linux 与 macOS 的整合包为 `.tar.gz`，无需 7-Zip。
+  py7zr 与 7-Zip 都不可用时，7z 整合包会在下载前被拒绝，需关闭“下载后解压”并手动解压。
 - **要求**：Hanafubuki 0.3.29 及以上、0.4 以下，且包含扩展验证所需的宿主功能
   （`sdWebuiAllInOne`、`registerInstances` 与 `instances.scan`、
   `host.info.instancesDir`、`pages` 页面、frame 客户端的 `pickDirectory()` 与
