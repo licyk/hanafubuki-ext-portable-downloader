@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import importlib.util
+import io
+import json
+import sys
 import threading
 from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+from portable_downloader import extract_child
 from portable_downloader.archive import (
     ExtractCancelled,
     ExtractError,
@@ -118,3 +123,32 @@ def test_an_archive_that_does_not_read_fails_with_the_library_reason(tmp_path: P
 
     assert str(failure.value)
     assert [path.name for path in folder.iterdir()] == ["broken.7z"]
+
+
+def test_a_7z_without_py7zr_fails_with_the_reason_and_installs_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Where the requirements leave py7zr out (Python 3.15): the library would
+    # pip-install it into the application's interpreter; the child refuses first.
+    find_spec = importlib.util.find_spec
+    monkeypatch.setattr(
+        extract_child.importlib.util,
+        "find_spec",
+        lambda name, *args: None if name == "py7zr" else find_spec(name, *args),
+    )
+    reports = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", reports)
+    archive = _archive(tmp_path, "zip", portable_files()).with_name("pkg-nightly.7z")
+    target = tmp_path / "target"
+
+    assert extract_child.main(["extract_child", str(archive), str(target)]) == 1
+
+    error = json.loads(reports.getvalue().splitlines()[-1])["error"]
+    assert "pkg-nightly.7z is a 7z archive" in error
+    assert "py7zr" in error
+    assert not target.exists()
+
+
+def test_only_a_7z_needs_py7zr(tmp_path: Path) -> None:
+    assert extract_child.missing_codec(tmp_path / "a.tar.gz") is None
+    assert extract_child.missing_codec(tmp_path / "a.zip") is None

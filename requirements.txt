@@ -1,7 +1,12 @@
 # Installed by Hanafubuki with `pip install --target` into the extension's
 # data directory. The managed Python has neither: without requests the
-# library's downloader falls back to urllib (no progress, no cancel), and
-# without py7zr its extract_archive would pip-install into the shared
-# interpreter.
+# library's downloader falls back to urllib (no progress, no cancel).
 requests>=2.31
-py7zr>=0.21
+# py7zr extracts the Windows packages (.7z; the Linux and macOS ones are
+# .tar.gz). Its codecs (pyppmd, pybcj, inflate64) publish no wheels for
+# Python 3.15, the application's default, and building them needs a compiler:
+# a failed install would keep the whole backend from starting, so it is not
+# asked for there. Without it a .7z fails its extraction with that reason
+# (extract_child) rather than the library pip-installing py7zr into the
+# application's shared interpreter.
+py7zr>=0.21; sys_platform == "win32" and python_version < "3.15"

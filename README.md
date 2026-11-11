@@ -41,8 +41,13 @@ extension-validation host features:
 - the frame client's `pickDirectory()` and `navigateInstance()` (the page hides
   **Choose…** and **Open** when the host's client does not have them).
 
-The backend's Python requirements (`requests`, `py7zr`) are installed by the
-application into the extension's data directory when it is turned on.
+The backend's Python requirements are installed by the application into the
+extension's data directory when it is turned on: `requests`, and on Windows
+`py7zr` for the `.7z` packages. py7zr is not asked for on Python 3.15 (the
+application's default), where its codecs publish no wheels and would need a
+compiler; there a `.7z` package fails its extraction with that reason and is
+left in the folder to extract by hand. The Linux and macOS packages are
+`.tar.gz` and need nothing.
 
 ## Install
 

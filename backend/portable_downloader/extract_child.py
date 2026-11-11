@@ -7,6 +7,7 @@ library's own output goes to stderr, the extension's log.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import sys
 import threading
@@ -59,11 +60,31 @@ class _Bar:
         return None
 
 
+def missing_codec(archive: Path) -> str | None:
+    """Why ``archive`` cannot be extracted on this Python, if it cannot.
+
+    A ``.7z`` needs py7zr, which the requirements ask for only where it installs
+    (see ``requirements.txt``). Without it, ``extract_archive`` would pip-install
+    it into the application's interpreter, which the extension never changes.
+    """
+    if archive.suffix.lower() != ".7z" or importlib.util.find_spec("py7zr") is not None:
+        return None
+    version = f"{sys.version_info.major}.{sys.version_info.minor}"
+    return (
+        f"{archive.name} is a 7z archive, and py7zr, which extracts it, is not installed "
+        f"for Python {version}: extract it into its folder yourself"
+    )
+
+
 def main(argv: list[str]) -> int:
     """Extracts ``argv[1]`` into ``argv[2]``."""
     out = sys.stdout
     sys.stdout = sys.stderr
     reports = _Reports(out)
+    missing = missing_codec(Path(argv[1]))
+    if missing is not None:
+        reports.write({"error": missing}, force=True)
+        return 1
     from sd_webui_all_in_one import archive_manager as library
 
     archive_manager: Any = library
