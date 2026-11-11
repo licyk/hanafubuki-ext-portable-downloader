@@ -24,7 +24,7 @@ from .catalog import (
 from .jobs import ACTIVE, Job, JobQueue
 from .pipeline import JobRunner, Registration
 from .settings import CHANNELS, SOURCES, Settings
-from .sevenzip import SevenZip
+from .sevenzip import SevenZip, platform_download
 from .throttle import Throttle
 
 # State pushes and Task Center progress at most four times a second.
@@ -82,7 +82,7 @@ class Backend(Handler):
         self._lock = threading.Lock()
         self._host: Host | None = None
         self._data_path: Path | None = None
-        self._sevenzip = sevenzip or SevenZip(self._tools_dir)
+        self._sevenzip = sevenzip or SevenZip(self._tools_dir, platform_download())
         self._platform = "linux"
         self._instances_dir: str | None = None
         self._locale = "en"

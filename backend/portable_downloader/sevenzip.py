@@ -77,7 +77,7 @@ class SevenZip:
     def __init__(
         self,
         directory: Callable[[], Path],
-        download: Download | None = None,
+        download: Download | None,
         environ: Mapping[str, str] = os.environ,
         windows: bool = sys.platform == "win32",
     ) -> None:
@@ -85,12 +85,12 @@ class SevenZip:
 
         Args:
             directory: Where a downloaded executable is kept (read when it is needed).
-            download: Where to download it from; ``platform_download()`` by default.
+            download: Where to download it from (``platform_download()``), if anywhere.
             environ: The environment whose ``PATH`` (and Program Files) is searched.
             windows: Whether to look in 7-Zip's Program Files folder too.
         """
         self._directory = directory
-        self._download = download if download is not None else platform_download()
+        self._download = download
         self._environ = environ
         self._windows = windows
 
