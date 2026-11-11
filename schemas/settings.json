@@ -1,0 +1,62 @@
+[
+  {
+    "key": "source",
+    "kind": "select",
+    "label": { "kind": "key", "key": "ext.io.github.licyk.portable-downloader.settings.source" },
+    "help": { "kind": "key", "key": "ext.io.github.licyk.portable-downloader.settings.sourceHelp" },
+    "options": [
+      { "value": "modelscope", "label": { "kind": "literal", "text": { "en": "ModelScope" } } },
+      { "value": "huggingface", "label": { "kind": "literal", "text": { "en": "Hugging Face" } } }
+    ],
+    "default": "modelscope",
+    "commit": "change"
+  },
+  {
+    "key": "channel",
+    "kind": "select",
+    "label": { "kind": "key", "key": "ext.io.github.licyk.portable-downloader.settings.channel" },
+    "help": { "kind": "key", "key": "ext.io.github.licyk.portable-downloader.settings.channelHelp" },
+    "options": [
+      { "value": "nightly", "label": { "kind": "key", "key": "ext.io.github.licyk.portable-downloader.settings.nightly" } },
+      { "value": "stable", "label": { "kind": "key", "key": "ext.io.github.licyk.portable-downloader.settings.stable" } }
+    ],
+    "default": "nightly",
+    "commit": "change"
+  },
+  {
+    "key": "downloadTool",
+    "kind": "select",
+    "label": { "kind": "key", "key": "ext.io.github.licyk.portable-downloader.settings.downloadTool" },
+    "help": { "kind": "key", "key": "ext.io.github.licyk.portable-downloader.settings.downloadToolHelp" },
+    "options": [
+      { "value": "aria2", "label": { "kind": "literal", "text": { "en": "aria2" } } },
+      { "value": "requests", "label": { "kind": "literal", "text": { "en": "requests" } } }
+    ],
+    "default": "aria2",
+    "commit": "change"
+  },
+  {
+    "key": "autoExtract",
+    "kind": "boolean",
+    "label": { "kind": "key", "key": "ext.io.github.licyk.portable-downloader.settings.autoExtract" },
+    "help": { "kind": "key", "key": "ext.io.github.licyk.portable-downloader.settings.autoExtractHelp" },
+    "default": true,
+    "commit": "change"
+  },
+  {
+    "key": "deleteArchive",
+    "kind": "boolean",
+    "label": { "kind": "key", "key": "ext.io.github.licyk.portable-downloader.settings.deleteArchive" },
+    "help": { "kind": "key", "key": "ext.io.github.licyk.portable-downloader.settings.deleteArchiveHelp" },
+    "default": false,
+    "commit": "change"
+  },
+  {
+    "key": "defaultFolder",
+    "kind": "path",
+    "pathKind": "directory",
+    "label": { "kind": "key", "key": "ext.io.github.licyk.portable-downloader.settings.defaultFolder" },
+    "help": { "kind": "key", "key": "ext.io.github.licyk.portable-downloader.settings.defaultFolderHelp" },
+    "commit": "blur"
+  }
+]

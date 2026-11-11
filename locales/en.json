@@ -1,0 +1,18 @@
+{
+  "settings": {
+    "source": "Download source",
+    "sourceHelp": "Where the package list's files are downloaded from. ModelScope is usually faster in mainland China.",
+    "channel": "Channel",
+    "channelHelp": "Stable releases, or the nightly builds made from the latest sources.",
+    "stable": "Stable",
+    "nightly": "Nightly",
+    "downloadTool": "Download tool",
+    "downloadToolHelp": "aria2 downloads over several connections when it is installed; otherwise requests is used.",
+    "autoExtract": "Extract after download",
+    "autoExtractHelp": "Extract the package and register it as an instance once it is downloaded.",
+    "deleteArchive": "Delete the archive after extracting",
+    "deleteArchiveHelp": "Remove the downloaded archive once it has been extracted.",
+    "defaultFolder": "Default download folder",
+    "defaultFolderHelp": "Where packages are downloaded and extracted. Empty: the application's instances folder."
+  }
+}

@@ -1,0 +1,25 @@
+# Development tooling only: the extension is not a Python distribution. Its
+# backend runs on Hanafubuki's managed Python (3.10 or later) with the SDK and
+# sd_webui_all_in_one on its import path, which the tests reproduce with
+# PYTHONPATH (see README.md).
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["web", "ui"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "BLE", "UP", "SIM", "RUF"]
+# Chinese strings use full-width punctuation on purpose.
+ignore = ["RUF001", "RUF002", "RUF003"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["backend", "."]
+addopts = "-q"
+
+[tool.ty.environment]
+python-version = "3.10"
+extra-paths = ["backend", "tests"]
+
+[tool.ty.src]
+exclude = ["web", "ui"]

@@ -1,0 +1,7 @@
+# Installed by Hanafubuki with `pip install --target` into the extension's
+# data directory. The managed Python has neither: without requests the
+# library's downloader falls back to urllib (no progress, no cancel), and
+# without py7zr its extract_archive would pip-install into the shared
+# interpreter.
+requests>=2.31
+py7zr>=0.21

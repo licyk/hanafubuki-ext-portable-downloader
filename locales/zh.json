@@ -1,0 +1,18 @@
+{
+  "settings": {
+    "source": "下载源",
+    "sourceHelp": "整合包文件的下载来源。中国大陆通常使用 ModelScope 更快。",
+    "channel": "版本通道",
+    "channelHelp": "稳定版，或使用最新源码构建的夜间构建版。",
+    "stable": "稳定版",
+    "nightly": "夜间构建版",
+    "downloadTool": "下载工具",
+    "downloadToolHelp": "已安装 aria2 时使用多连接下载，否则使用 requests。",
+    "autoExtract": "下载后自动解压",
+    "autoExtractHelp": "下载完成后解压整合包，并将其注册为实例。",
+    "deleteArchive": "解压后删除压缩包",
+    "deleteArchiveHelp": "解压完成后删除下载的压缩包。",
+    "defaultFolder": "默认下载目录",
+    "defaultFolderHelp": "整合包的下载和解压位置。留空则使用应用的实例目录。"
+  }
+}
