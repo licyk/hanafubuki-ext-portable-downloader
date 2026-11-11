@@ -31,7 +31,7 @@ as an instance you can open right away.
 
 ## Requirements
 
-Hanafubuki **0.3.28 or later, before 0.4** (`engines.hanafubuki`), with the
+Hanafubuki **0.3.29 or later, before 0.4** (`engines.hanafubuki`), with the
 extension-validation host features:
 
 - Python backends that import `sd_webui_all_in_one` (`[backend] sdWebuiAllInOne`);
@@ -152,7 +152,7 @@ or caches.
   兼容性；按顺序逐个下载（aria2 或 requests，支持断点续传与取消）；使用
   sd_webui_all_in_one 解压（7z 通过 py7zr：仅 Windows 且 Python 低于 3.15 时安装，应用默认的 Python 3.15 上无法解压 7z 整合包，需关闭“下载后解压”并手动解压），可选解压后删除压缩包；解压后通过应用的
   实例发现功能注册实例，并可一键打开。
-- **要求**：Hanafubuki 0.3.28 及以上、0.4 以下，且包含扩展验证所需的宿主功能
+- **要求**：Hanafubuki 0.3.29 及以上、0.4 以下，且包含扩展验证所需的宿主功能
   （`sdWebuiAllInOne`、`registerInstances` 与 `instances.scan`、
   `host.info.instancesDir`、`pages` 页面、frame 客户端的 `pickDirectory()` 与
   `navigateInstance()`）。

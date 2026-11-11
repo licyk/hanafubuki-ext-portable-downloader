@@ -188,7 +188,7 @@ class FakeHost:
         self.initialize_params: dict[str, Any] = {"dataDir": str(data_dir), "locale": "en"}
         self.answers: dict[str, Any] = {
             "host.info": {
-                "version": "0.3.28",
+                "version": "0.3.29",
                 "protocolVersion": 1,
                 "locale": "en",
                 "platform": "linux",

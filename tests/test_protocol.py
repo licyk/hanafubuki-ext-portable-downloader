@@ -128,7 +128,7 @@ def test_the_backend_speaks_the_protocol_through_a_whole_job(
         process,
         {
             "host.info": {
-                "version": "0.3.28",
+                "version": "0.3.29",
                 "protocolVersion": 1,
                 "locale": "zh",
                 "platform": "linux",
@@ -147,7 +147,7 @@ def test_the_backend_speaks_the_protocol_through_a_whole_job(
                 "protocolVersion": 1,
                 "extension": {"id": "io.github.licyk.portable-downloader", "version": "0.1.0"},
                 "permissions": {"instances": "read", "registerInstances": True},
-                "host": {"version": "0.3.28"},
+                "host": {"version": "0.3.29"},
                 "dataDir": str(data_dir),
                 "locale": "zh",
             },
