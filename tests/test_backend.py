@@ -10,6 +10,7 @@ from typing import Any, cast
 
 import pytest
 from hanafubuki_extension import INVALID_PARAMS, PERMISSION_DENIED, Host, RpcError
+from portable_downloader import app
 from portable_downloader.app import Backend
 from portable_downloader.gpu import GpuInfo
 from support import (
@@ -177,6 +178,25 @@ def test_enqueue_refuses_what_does_not_fit(
 
     assert failure.value.code == INVALID_PARAMS
     assert message in failure.value.message
+
+
+def test_a_7z_that_could_not_be_extracted_is_refused_before_its_download(
+    tmp_path: Path, http_server: HttpServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    filename = _serve_package(http_server, tmp_path, "7z")
+    backend, _ = _start(tmp_path, http_server)
+    monkeypatch.setattr(app, "missing_codec", lambda archive: f"{archive.name}: no py7zr")
+    args = {"key": "comfyui_cuda", "filename": filename, "folder": str(tmp_path / "out")}
+
+    with pytest.raises(RpcError) as failure:
+        backend.dispatch("enqueue", args)
+
+    assert failure.value.code == INVALID_PARAMS
+    assert f"{filename}: no py7zr" in failure.value.message
+    assert backend.state()["jobs"] == []
+    kept = backend.dispatch("enqueue", {**args, "autoExtract": False})
+    assert kept["autoExtract"] is False
+    assert wait_for(lambda: _finished(backend, kept["id"]), timeout=60)["state"] == "done"
 
 
 def test_an_unknown_action_is_invalid(tmp_path: Path, http_server: HttpServer) -> None:

@@ -20,6 +20,7 @@ from .catalog import (
     fetch_document,
     parse_catalog,
 )
+from .extract_child import missing_codec
 from .jobs import ACTIVE, Job, JobQueue
 from .pipeline import JobRunner, Registration
 from .settings import CHANNELS, SOURCES, Settings
@@ -212,6 +213,14 @@ class Backend(Handler):
         if found is None:
             raise RpcError(INVALID_PARAMS, f"the package list has no {filename} for {key}")
         package, entry = found
+        auto_extract = _flag(args, "autoExtract", settings.auto_extract)
+        missing = missing_codec(Path(filename)) if auto_extract else None
+        if missing is not None:
+            # Refused before a multi-GB download whose extraction would fail.
+            raise RpcError(
+                INVALID_PARAMS,
+                f"{missing}; turn off extracting after download to download it anyway",
+            )
         if any(
             job["filename"] == filename
             and job["folder"] == folder
@@ -230,7 +239,7 @@ class Backend(Handler):
             url=entry.url,
             folder=folder,
             tool=settings.download_tool,
-            auto_extract=_flag(args, "autoExtract", settings.auto_extract),
+            auto_extract=auto_extract,
             delete_archive=_flag(args, "deleteArchive", settings.delete_archive),
         )
         return self._queue.enqueue(job)

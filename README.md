@@ -45,8 +45,9 @@ The backend's Python requirements are installed by the application into the
 extension's data directory when it is turned on: `requests`, and on Windows
 `py7zr` for the `.7z` packages. py7zr is not asked for on Python 3.15 (the
 application's default), where its codecs publish no wheels and would need a
-compiler; there a `.7z` package fails its extraction with that reason and is
-left in the folder to extract by hand. The Linux and macOS packages are
+compiler; there a `.7z` package is refused with that reason unless extracting
+after download is turned off, and is then left in the folder to extract by
+hand. The Linux and macOS packages are
 `.tar.gz` and need nothing.
 
 ## Install
@@ -149,7 +150,7 @@ or caches.
 - **功能**：从多个镜像获取并缓存整合包列表（离线时显示上次的列表）；可选
   ModelScope / Hugging Face 下载源和夜间构建版 / 稳定版；根据整合包标识提示显卡
   兼容性；按顺序逐个下载（aria2 或 requests，支持断点续传与取消）；使用
-  sd_webui_all_in_one 解压（7z 通过 py7zr），可选解压后删除压缩包；解压后通过应用的
+  sd_webui_all_in_one 解压（7z 通过 py7zr：仅 Windows 且 Python 低于 3.15 时安装，应用默认的 Python 3.15 上无法解压 7z 整合包，需关闭“下载后解压”并手动解压），可选解压后删除压缩包；解压后通过应用的
   实例发现功能注册实例，并可一键打开。
 - **要求**：Hanafubuki 0.3.28 及以上、0.4 以下，且包含扩展验证所需的宿主功能
   （`sdWebuiAllInOne`、`registerInstances` 与 `instances.scan`、
