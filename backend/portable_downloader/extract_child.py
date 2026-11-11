@@ -7,13 +7,14 @@ library's own output goes to stderr, the extension's log.
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import sys
 import threading
 import time
 from pathlib import Path
 from typing import Any, TextIO
+
+from .archive import needs_sevenzip
 
 # Progress lines at most five times a second; the last one is always written.
 _INTERVAL = 0.2
@@ -64,10 +65,11 @@ def missing_codec(archive: Path) -> str | None:
     """Why ``archive`` cannot be extracted on this Python, if it cannot.
 
     A ``.7z`` needs py7zr, which the requirements ask for only where it installs
-    (see ``requirements.txt``). Without it, ``extract_archive`` would pip-install
-    it into the application's interpreter, which the extension never changes.
+    (see ``requirements.txt``); without it the parent runs 7-Zip instead. Should one
+    reach the child anyway, ``extract_archive`` would pip-install py7zr into the
+    application's interpreter, which the extension never changes.
     """
-    if archive.suffix.lower() != ".7z" or importlib.util.find_spec("py7zr") is not None:
+    if not needs_sevenzip(archive.name):
         return None
     version = f"{sys.version_info.major}.{sys.version_info.minor}"
     return (

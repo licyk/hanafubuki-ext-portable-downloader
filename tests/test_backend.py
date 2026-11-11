@@ -3,21 +3,24 @@ real ``download_file`` and ``extract_archive`` against a local HTTP server."""
 
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
+import sys
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
 from hanafubuki_extension import INVALID_PARAMS, PERMISSION_DENIED, Host, RpcError
-from portable_downloader import app
 from portable_downloader.app import Backend
 from portable_downloader.gpu import GpuInfo
+from portable_downloader.sevenzip import Download, SevenZip
 from support import (
     TOP_DIR,
     FakeHost,
     HttpServer,
     entry,
+    fake_sevenzip_script,
     make_7z,
     make_tar_gz,
     make_zip,
@@ -41,6 +44,9 @@ def _serve_package(server: HttpServer, tmp_path: Path, kind: str = "tar.gz", **r
         data = make_zip(files)
     elif kind == "7z":
         data = make_7z(files, tmp_path)
+    elif kind == "zip-as-7z":
+        # What the stand-in 7-Zip extracts; served under a .7z name.
+        data, kind = make_zip(files), "7z"
     else:
         data = make_tar_gz(files)
     filename = f"{NIGHTLY}.{kind}"
@@ -52,8 +58,12 @@ def _serve_package(server: HttpServer, tmp_path: Path, kind: str = "tar.gz", **r
     return filename
 
 
-def _start(tmp_path: Path, server: HttpServer, **answers: Any) -> tuple[Backend, FakeHost]:
-    backend = Backend(list_urls=[server.url("/portable_list.json")], detect_gpu=_nvidia)
+def _start(
+    tmp_path: Path, server: HttpServer, sevenzip: SevenZip | None = None, **answers: Any
+) -> tuple[Backend, FakeHost]:
+    backend = Backend(
+        list_urls=[server.url("/portable_list.json")], detect_gpu=_nvidia, sevenzip=sevenzip
+    )
     host = FakeHost(tmp_path / "data", **answers)
     backend.activate(cast(Host, host))
     wait_for(lambda: backend.state()["catalog"]["revision"] >= 1)
@@ -180,23 +190,84 @@ def test_enqueue_refuses_what_does_not_fit(
     assert message in failure.value.message
 
 
-def test_a_7z_that_could_not_be_extracted_is_refused_before_its_download(
-    tmp_path: Path, http_server: HttpServer, monkeypatch: pytest.MonkeyPatch
+def _no_sevenzip(tmp_path: Path, download: Download | None = None) -> SevenZip:
+    # No 7-Zip on PATH, and a download only when the test serves one.
+    return SevenZip(
+        lambda: tmp_path / "data" / "tools", download, environ={"PATH": ""}, windows=False
+    )
+
+
+@pytest.mark.usefixtures("no_py7zr")
+def test_a_7z_that_nothing_can_extract_is_refused_before_its_download(
+    tmp_path: Path, http_server: HttpServer
 ) -> None:
-    filename = _serve_package(http_server, tmp_path, "7z")
-    backend, _ = _start(tmp_path, http_server)
-    monkeypatch.setattr(app, "missing_codec", lambda archive: f"{archive.name}: no py7zr")
+    filename = _serve_package(http_server, tmp_path, "zip-as-7z")
+    backend, _ = _start(tmp_path, http_server, _no_sevenzip(tmp_path))
     args = {"key": "comfyui_cuda", "filename": filename, "folder": str(tmp_path / "out")}
 
     with pytest.raises(RpcError) as failure:
         backend.dispatch("enqueue", args)
 
     assert failure.value.code == INVALID_PARAMS
-    assert f"{filename}: no py7zr" in failure.value.message
+    assert f"{filename} is a 7z archive, which needs py7zr or 7-Zip" in failure.value.message
+    assert "p7zip-full" in failure.value.message
     assert backend.state()["jobs"] == []
     kept = backend.dispatch("enqueue", {**args, "autoExtract": False})
     assert kept["autoExtract"] is False
     assert wait_for(lambda: _finished(backend, kept["id"]), timeout=60)["state"] == "done"
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the stand-in 7-Zip is a POSIX script")
+@pytest.mark.usefixtures("no_py7zr")
+def test_without_py7zr_a_7z_job_downloads_7zip_once_and_extracts_with_it(
+    tmp_path: Path, http_server: HttpServer
+) -> None:
+    filename = _serve_package(http_server, tmp_path, "zip-as-7z")
+    script = fake_sevenzip_script()
+    url = http_server.serve("/7za", script)
+    download = Download(url, len(script), hashlib.sha256(script).hexdigest(), "7za")
+    backend, host = _start(
+        tmp_path,
+        http_server,
+        _no_sevenzip(tmp_path, download),
+        **{"settings.get": {"values": {"downloadTool": "requests"}}},
+    )
+
+    for folder in (tmp_path / "first", tmp_path / "second"):
+        job = backend.dispatch(
+            "enqueue", {"key": "comfyui_cuda", "filename": filename, "folder": str(folder)}
+        )
+        done = wait_for(lambda job=job: _finished(backend, job["id"]), timeout=60)
+        assert done["state"] == "done", done["error"]
+        assert (folder / TOP_DIR / "core" / "nodes.py").is_file()
+        assert done["extracted"] == done["extractTotal"] == 100
+
+    assert http_server.routes["/7za"].hits == 1
+    assert (tmp_path / "data" / "tools" / "7za").is_file()
+    assert len(host.called("instances.scan")) == 2
+
+
+@pytest.mark.usefixtures("no_py7zr")
+def test_without_py7zr_or_7zip_a_tar_gz_still_extracts(
+    tmp_path: Path, http_server: HttpServer
+) -> None:
+    filename = _serve_package(http_server, tmp_path, "tar.gz")
+    backend, _ = _start(
+        tmp_path,
+        http_server,
+        _no_sevenzip(tmp_path),
+        **{"settings.get": {"values": {"downloadTool": "requests"}}},
+    )
+    folder = tmp_path / "out"
+
+    job = backend.dispatch(
+        "enqueue", {"key": "comfyui_cuda", "filename": filename, "folder": str(folder)}
+    )
+    done = wait_for(lambda: _finished(backend, job["id"]), timeout=60)
+
+    assert done["state"] == "done", done["error"]
+    assert (folder / TOP_DIR / "core" / "main.py").is_file()
+    assert not (tmp_path / "data" / "tools").exists()
 
 
 def test_an_unknown_action_is_invalid(tmp_path: Path, http_server: HttpServer) -> None:

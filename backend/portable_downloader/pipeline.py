@@ -8,8 +8,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
-from .archive import ExtractCancelled, extract_package
+from .archive import ExtractCancelled, extract_package, needs_sevenzip
 from .jobs import Job, JobCancelled, JobQueue
+from .sevenzip import SevenZip, SevenZipError
 
 # How often the download's progress reaches the job (the library reports every chunk).
 _PROGRESS_INTERVAL = 0.2
@@ -29,13 +30,15 @@ Register = Callable[[Path], Registration]
 class JobRunner:
     """Runs a job through its steps; the queue calls it on its worker thread."""
 
-    def __init__(self, register: Register) -> None:
+    def __init__(self, register: Register, sevenzip: SevenZip) -> None:
         """Builds the runner.
 
         Args:
             register: Registers the extracted package with the application (``instances.scan``).
+            sevenzip: Finds or downloads 7-Zip, for a ``.7z`` where py7zr is not installed.
         """
         self._register = register
+        self._sevenzip = sevenzip
 
     def __call__(self, job: Job, queue: JobQueue) -> None:
         """Runs ``job``.
@@ -45,6 +48,8 @@ class JobRunner:
         """
         folder = Path(job.folder)
         folder.mkdir(parents=True, exist_ok=True)
+        # Before the package's download, which a missing 7-Zip would waste.
+        sevenzip = self._find_sevenzip(job)
         archive = self._download(job, queue, folder)
         if not job.auto_extract:
             queue.update(job, state="done")
@@ -56,6 +61,7 @@ class JobRunner:
                 folder,
                 lambda done, total: queue.update(job, extracted=done, extract_total=total),
                 job.cancel,
+                sevenzip,
             )
         except ExtractCancelled as error:
             raise JobCancelled() from error
@@ -66,6 +72,16 @@ class JobRunner:
         queue.update(
             job, state="done", instances=registration.instances, warnings=registration.warnings
         )
+
+    def _find_sevenzip(self, job: Job) -> Path | None:
+        if not (job.auto_extract and needs_sevenzip(job.filename)):
+            return None
+        try:
+            return self._sevenzip.executable(job.cancel)
+        except SevenZipError:
+            if job.cancel.is_set():
+                raise JobCancelled() from None
+            raise
 
     def _download(self, job: Job, queue: JobQueue, folder: Path) -> Path:
         from sd_webui_all_in_one.downloader import DownloadToolType, download_file

@@ -11,6 +11,7 @@ from typing import Any
 from hanafubuki_extension import INVALID_PARAMS, Handler, Host, RpcError
 
 from . import gpu
+from .archive import needs_sevenzip
 from .catalog import (
     LIST_URLS,
     Catalog,
@@ -20,10 +21,10 @@ from .catalog import (
     fetch_document,
     parse_catalog,
 )
-from .extract_child import missing_codec
 from .jobs import ACTIVE, Job, JobQueue
 from .pipeline import JobRunner, Registration
 from .settings import CHANNELS, SOURCES, Settings
+from .sevenzip import SevenZip
 from .throttle import Throttle
 
 # State pushes and Task Center progress at most four times a second.
@@ -64,6 +65,7 @@ class Backend(Handler):
         list_urls: Sequence[str] = LIST_URLS,
         fetch: Fetch | None = None,
         detect_gpu: Callable[[str], gpu.GpuInfo] = gpu.detect,
+        sevenzip: SevenZip | None = None,
     ) -> None:
         """Builds the backend.
 
@@ -71,12 +73,16 @@ class Backend(Handler):
             list_urls: The package list's mirrors, in order.
             fetch: Reads a URL's body (urllib by default).
             detect_gpu: Detects the local GPUs for a platform.
+            sevenzip: Finds 7-Zip; by default this system's, downloaded into the data
+                directory's ``tools``.
         """
         self._list_urls = tuple(list_urls)
         self._fetch = fetch
         self._detect_gpu = detect_gpu
         self._lock = threading.Lock()
         self._host: Host | None = None
+        self._data_path: Path | None = None
+        self._sevenzip = sevenzip or SevenZip(self._tools_dir)
         self._platform = "linux"
         self._instances_dir: str | None = None
         self._locale = "en"
@@ -92,7 +98,7 @@ class Backend(Handler):
         self._progress_open: set[str] = set()
         self._announced: set[str] = set()
         self._throttle = Throttle(_PUSH_INTERVAL, self._publish)
-        self._queue = JobQueue(JobRunner(self._register), self._throttle.poke)
+        self._queue = JobQueue(JobRunner(self._register, self._sevenzip), self._throttle.poke)
 
     # --- Hooks -------------------------------------------------------------------------
 
@@ -103,7 +109,8 @@ class Backend(Handler):
         values = (host.call("settings.get") or {}).get("values")
         self._settings = Settings.from_values(values if isinstance(values, dict) else {})
         host.call("events.subscribe", {"topics": ["settings"]})
-        self._cache = CatalogCache(_data_dir(host))
+        self._data_path = _data_dir(host)
+        self._cache = CatalogCache(self._data_path)
         cached = self._cache.load()
         if cached is not None:
             self._catalog, self._catalog_status, self._from_cache = cached, "ready", True
@@ -214,12 +221,15 @@ class Backend(Handler):
             raise RpcError(INVALID_PARAMS, f"the package list has no {filename} for {key}")
         package, entry = found
         auto_extract = _flag(args, "autoExtract", settings.auto_extract)
-        missing = missing_codec(Path(filename)) if auto_extract else None
+        missing = (
+            self._sevenzip.unavailable() if auto_extract and needs_sevenzip(filename) else None
+        )
         if missing is not None:
             # Refused before a multi-GB download whose extraction would fail.
             raise RpcError(
                 INVALID_PARAMS,
-                f"{missing}; turn off extracting after download to download it anyway",
+                f"{filename} is a 7z archive, which needs py7zr or 7-Zip to extract: "
+                f"{missing}, or turn off extracting after download to download it anyway",
             )
         if any(
             job["filename"] == filename
@@ -294,6 +304,11 @@ class Backend(Handler):
             self._cache.save(document)
         except OSError as error:
             self._log("warn", f"could not cache the package list: {error}")
+
+    def _tools_dir(self) -> Path:
+        # Jobs run only after `activate`, which reads the data directory.
+        assert self._data_path is not None
+        return self._data_path / "tools"
 
     def _register(self, path: Path) -> Registration:
         host = self._host

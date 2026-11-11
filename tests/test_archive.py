@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import importlib.util
 import io
 import json
 import sys
@@ -125,17 +124,12 @@ def test_an_archive_that_does_not_read_fails_with_the_library_reason(tmp_path: P
     assert [path.name for path in folder.iterdir()] == ["broken.7z"]
 
 
-def test_a_7z_without_py7zr_fails_with_the_reason_and_installs_nothing(
+@pytest.mark.usefixtures("no_py7zr")
+def test_a_7z_reaching_the_child_without_py7zr_fails_with_the_reason_and_installs_nothing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # Where the requirements leave py7zr out (Python 3.15): the library would
-    # pip-install it into the application's interpreter; the child refuses first.
-    find_spec = importlib.util.find_spec
-    monkeypatch.setattr(
-        extract_child.importlib.util,
-        "find_spec",
-        lambda name, *args: None if name == "py7zr" else find_spec(name, *args),
-    )
+    # The parent runs 7-Zip for it; were the child asked anyway, the library would
+    # pip-install py7zr into the application's interpreter: the child refuses first.
     reports = io.StringIO()
     monkeypatch.setattr(sys, "stdout", reports)
     archive = _archive(tmp_path, "zip", portable_files()).with_name("pkg-nightly.7z")

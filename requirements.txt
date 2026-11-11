@@ -6,7 +6,8 @@ requests>=2.31
 # .tar.gz). Its codecs (pyppmd, pybcj, inflate64) publish no wheels for
 # Python 3.15, the application's default, and building them needs a compiler:
 # a failed install would keep the whole backend from starting, so it is not
-# asked for there. Without it a .7z fails its extraction with that reason
-# (extract_child) rather than the library pip-installing py7zr into the
+# asked for there. Without it a .7z is extracted by 7-Zip's command line
+# (sevenzip.py: from PATH, or on Windows a 7za.exe downloaded once into the
+# data directory), never by the library pip-installing py7zr into the
 # application's shared interpreter.
 py7zr>=0.21; sys_platform == "win32" and python_version < "3.15"

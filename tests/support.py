@@ -9,6 +9,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import sys
 import tarfile
 import threading
 import time
@@ -145,6 +146,67 @@ def make_7z(files: dict[str, bytes], workdir: Path) -> bytes:
         for name, data in files.items():
             archive.writef(io.BytesIO(data), name)
     return path.read_bytes()
+
+
+# Stands in for 7-Zip's command line where none is installed: `-h` prints its banner,
+# `x <archive> -o<dir> -y -bsp1 -bso0` extracts a zip, drawing its progress as 7-Zip
+# does (backspaces, or carriage returns with FAKE_7Z_STYLE=cr), and fails a bad
+# archive with 7-Zip's message. FAKE_7Z_DELAY sleeps after each file; FAKE_7Z_PID
+# names a file it writes its PID to.
+_FAKE_SEVENZIP = r"""
+import os
+import sys
+import time
+import zipfile
+
+args = sys.argv[1:]
+if not args or args[0] == "-h":
+    print("7-Zip (a) 26.00 (fake) : Copyright (c) 1999-2026 Igor Pavlov")
+    sys.exit(0)
+if args[0] != "x" or not {"-y", "-bsp1", "-bso0"} <= set(args):
+    sys.stderr.write("Command Line Error:\nUnsupported command: " + " ".join(args) + "\n")
+    sys.exit(7)
+if os.environ.get("FAKE_7Z_PID"):
+    with open(os.environ["FAKE_7Z_PID"], "w") as pid:
+        pid.write(str(os.getpid()))
+archive = args[1]
+out = next(arg[2:] for arg in args if arg.startswith("-o"))
+try:
+    package = zipfile.ZipFile(archive)
+except zipfile.BadZipFile:
+    sys.stderr.write("ERROR: " + archive + "\n" + archive + "\n")
+    sys.stderr.write("Open ERROR: Can not open the file as [7z] archive\n\n")
+    sys.stderr.write("ERRORS:\nIs not archive\n")
+    sys.exit(2)
+names = package.namelist()
+shown = ""
+for index, name in enumerate(names, 1):
+    package.extract(name, out)
+    text = "%3d%% %d - %s" % (index * 100 // len(names), index, name)
+    if os.environ.get("FAKE_7Z_STYLE") == "cr":
+        sys.stdout.write("\r" + text)
+    else:
+        erase = "\b" * len(shown)
+        sys.stdout.write(erase + " " * len(shown) + erase + text)
+    sys.stdout.flush()
+    shown = text
+    time.sleep(float(os.environ.get("FAKE_7Z_DELAY", "0")))
+sys.stdout.write("\b" * len(shown) + " " * len(shown) + "\b" * len(shown))
+"""
+
+
+def fake_sevenzip_script() -> bytes:
+    """The stand-in 7-Zip as an executable script for this interpreter (POSIX only)."""
+    return f"#!{sys.executable}\n{_FAKE_SEVENZIP}".encode()
+
+
+def install_fake_sevenzip(directory: Path, name: str = "7za") -> Path:
+    """Writes the stand-in 7-Zip into ``directory`` as ``name``, executable."""
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / name
+    path.write_bytes(fake_sevenzip_script())
+    path.chmod(0o755)
+    return path
 
 
 def portable_list(entries: dict[str, list[dict[str, Any]]], platform: str = "linux") -> dict:
