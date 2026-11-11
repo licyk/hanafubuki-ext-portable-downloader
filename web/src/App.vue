@@ -213,7 +213,7 @@ onMounted(downloader.start);
           </button>
         </div>
         <p v-if="jobs.length === 0" class="caption secondary">{{ t("noJobs") }}</p>
-        <ul v-else class="jobs" aria-live="polite">
+        <ul v-else class="jobs">
           <JobItem
             v-for="job in jobs"
             :key="job.id"

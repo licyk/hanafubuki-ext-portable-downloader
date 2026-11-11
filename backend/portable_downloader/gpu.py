@@ -150,6 +150,8 @@ def _detect_windows(which: Callable[[str], str | None]) -> GpuInfo:
     if shell:
         completed = subprocess.run(
             [shell, "-NoProfile", "-NonInteractive", "-Command", _WINDOWS_QUERY],
+            # The backend's stdin is the protocol's: never let a child read it.
+            stdin=subprocess.DEVNULL,
             capture_output=True,
             text=True,
             timeout=15,

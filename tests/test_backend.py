@@ -383,3 +383,49 @@ def test_deactivate_cancels_the_running_job(tmp_path: Path, http_server: HttpSer
     backend.deactivate(cast(Host, host))
 
     assert wait_for(lambda: _finished(backend, job["id"]), timeout=30)["state"] == "cancelled"
+
+
+@pytest.mark.parametrize("tool", ["requests", "aria2"])
+def test_a_package_downloaded_again_reuses_or_refetches_the_archive(
+    tmp_path: Path, http_server: HttpServer, tool: str
+) -> None:
+    # The retry after "already exists": the user removes the package and queues it again,
+    # with the archive still in the folder.
+    if tool == "aria2" and shutil.which("aria2c") is None:
+        pytest.skip("aria2c is not installed")
+    filename = _serve_package(http_server, tmp_path)
+    backend, host = _start(
+        tmp_path, http_server, **{"settings.get": {"values": {"downloadTool": tool}}}
+    )
+    folder = tmp_path / "out"
+    args = {"key": "comfyui_cuda", "filename": filename, "folder": str(folder)}
+
+    first = backend.dispatch("enqueue", args)
+    assert wait_for(lambda: _finished(backend, first["id"]), timeout=60)["state"] == "done"
+    shutil.rmtree(folder / TOP_DIR)
+    second = backend.dispatch("enqueue", args)
+    done = wait_for(lambda: _finished(backend, second["id"]), timeout=60)
+
+    assert done["state"] == "done", done["error"]
+    assert (folder / TOP_DIR / "core" / "main.py").is_file()
+    assert (folder / filename).stat().st_size == len(http_server.routes[f"/files/{filename}"].body)
+    assert len(host.called("instances.scan")) == 2
+
+
+def test_a_package_already_in_place_fails_without_touching_it(
+    tmp_path: Path, http_server: HttpServer
+) -> None:
+    filename = _serve_package(http_server, tmp_path)
+    backend, _ = _start(
+        tmp_path, http_server, **{"settings.get": {"values": {"downloadTool": "requests"}}}
+    )
+    args = {"key": "comfyui_cuda", "filename": filename, "folder": str(tmp_path / "out")}
+
+    first = backend.dispatch("enqueue", args)
+    assert wait_for(lambda: _finished(backend, first["id"]), timeout=60)["state"] == "done"
+    second = backend.dispatch("enqueue", args)
+    done = wait_for(lambda: _finished(backend, second["id"]), timeout=60)
+
+    assert done["state"] == "failed"
+    assert "already exists" in done["error"]
+    assert (tmp_path / "out" / TOP_DIR / "core" / "main.py").is_file()

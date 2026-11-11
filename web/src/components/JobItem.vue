@@ -48,7 +48,7 @@ const detail = computed(() => {
       <div class="text">
         <p class="name">{{ label }}</p>
         <p class="caption secondary">
-          <span :class="{ danger: job.state === 'failed' }">{{ t(stateKey) }}</span>
+          <span :class="{ danger: job.state === 'failed' }" aria-live="polite">{{ t(stateKey) }}</span>
           <template v-if="detail"> · {{ detail }}</template>
         </p>
       </div>
