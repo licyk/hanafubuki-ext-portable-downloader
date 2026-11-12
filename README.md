@@ -33,7 +33,7 @@ as an instance you can open right away.
 
 ## Requirements
 
-Hanafubuki **0.3.29 or later, before 0.4** (`engines.hanafubuki`), with the
+Hanafubuki **0.3.30 or later, before 0.4** (`engines.hanafubuki`), with the
 extension-validation host features:
 
 - Python backends that import `sd_webui_all_in_one` (`[backend] sdWebuiAllInOne`);
@@ -181,7 +181,7 @@ GPL-3.0-only.
   且能正常运行后才使用；Linux 与 macOS 不会下载，请安装 7-Zip（`7zip` 或 `p7zip-full`
   软件包，或 `brew install sevenzip`）。Linux 与 macOS 的整合包为 `.tar.gz`，无需 7-Zip。
   py7zr 与 7-Zip 都不可用时，7z 整合包会在下载前被拒绝，需关闭“下载后解压”并手动解压。
-- **要求**：Hanafubuki 0.3.29 及以上、0.4 以下，且包含扩展验证所需的宿主功能
+- **要求**：Hanafubuki 0.3.30 及以上、0.4 以下，且包含扩展验证所需的宿主功能
   （`sdWebuiAllInOne`、`registerInstances` 与 `instances.scan`、
   `host.info.instancesDir`、`pages` 页面、frame 客户端的 `pickDirectory()` 与
   `navigateInstance()`）。
