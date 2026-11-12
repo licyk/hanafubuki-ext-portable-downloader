@@ -156,8 +156,12 @@ python scripts/package.py            # dist/io.github.licyk.portable-downloader-
 ```
 
 The archive holds the manifest, `backend/`, `schemas/`, `locales/`, `ui/`,
-`requirements.txt` and this README, and none of `web/`, `tests/`, `scripts/`
-or caches.
+`requirements.txt`, this README and the license, and none of `web/`, `tests/`,
+`scripts/` or caches.
+
+## License
+
+GPL-3.0-only.
 
 ## 中文说明
 

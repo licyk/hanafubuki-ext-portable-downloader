@@ -2,7 +2,7 @@
 
 The archive holds the package's files at its root (the manifest, the backend,
 the settings form, the locales, the built page in ``ui/``, the requirements, the
-README) and none of the development files (``web/``, ``tests/``, ``scripts/``,
+README and the license) and none of the development files (``web/``, ``tests/``, ``scripts/``,
 caches). Build the page first (``npm run build`` in ``web/``).
 """
 
@@ -16,7 +16,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-FILES = ("hanafubuki-extension.toml", "requirements.txt", "README.md")
+FILES = ("hanafubuki-extension.toml", "LICENSE", "requirements.txt", "README.md")
 DIRECTORIES = ("backend", "schemas", "locales", "ui")
 SKIPPED = ("__pycache__",)
 
