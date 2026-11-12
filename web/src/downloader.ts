@@ -19,11 +19,10 @@ export function useDownloader() {
   const source = ref<Source>("modelscope");
   const channel = ref<Channel>("nightly");
   const error = ref<string | null>(null);
+  // The application's language, which the host sends with the theme.
+  const locale = ref(frame.locale());
   let pushed = false;
   let loaded = { source: "", revision: -1 };
-
-  const canPickDirectory = typeof frame.pickDirectory === "function";
-  const canNavigate = typeof frame.navigateInstance === "function";
 
   function receive(next: DownloaderState) {
     if (!state.value) {
@@ -60,6 +59,7 @@ export function useDownloader() {
   }
 
   function start() {
+    frame.onLocale((next) => (locale.value = next));
     // Listen first: a state pushed before the page listened is not sent again.
     frame.onState<DownloaderState>((next) => {
       pushed = true;
@@ -90,8 +90,7 @@ export function useDownloader() {
     source,
     channel,
     error,
-    canPickDirectory,
-    canNavigate,
+    locale,
     jobs: computed(() => state.value?.jobs ?? []),
     start,
     refresh: () => act("refresh", {}),
@@ -100,9 +99,9 @@ export function useDownloader() {
     cancel: (jobId: string) => act("cancel", { jobId }),
     remove: (jobId: string) => act("remove", { jobId }),
     clearFinished: () => act("clearFinished", {}),
-    pickDirectory: (title: string) => frame.pickDirectory?.({ title }) ?? Promise.resolve(null),
+    pickDirectory: (title: string) => frame.pickDirectory({ title }),
     openInstance: (instanceId: string) =>
-      frame.navigateInstance?.(instanceId).catch((failure: unknown) => {
+      frame.navigateInstance(instanceId).catch((failure: unknown) => {
         error.value = message(failure);
       }),
   };

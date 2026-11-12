@@ -45,7 +45,7 @@ const badge = computed(() => {
 </script>
 
 <template>
-  <article class="package card" :aria-labelledby="`name-${pkg.key}`">
+  <article class="package surface-card" :aria-labelledby="`name-${pkg.key}`">
     <div class="heading">
       <h3 :id="`name-${pkg.key}`">{{ pkg.displayName }}</h3>
       <span v-if="badge.vendor" class="badge caption" :class="badge.status" :title="badge.hint">
@@ -54,18 +54,18 @@ const badge = computed(() => {
         <span class="visually-hidden">: {{ badge.hint }}</span>
       </span>
     </div>
-    <p v-if="pkg.description" class="description secondary">{{ pkg.description }}</p>
+    <p v-if="pkg.description" class="description text-secondary">{{ pkg.description }}</p>
     <div class="actions">
       <template v-if="entries.length > 0">
-        <label class="caption secondary" :for="selectId">{{ t("version") }}</label>
-        <select :id="selectId" v-model="selected" class="field">
+        <label class="caption text-secondary" :for="selectId">{{ t("version") }}</label>
+        <select :id="selectId" v-model="selected" class="select">
           <option v-for="entry in entries" :key="entry.filename" :value="entry.filename">
             {{ entryLabel(entry) }}
           </option>
         </select>
         <button
           type="button"
-          class="button accent"
+          class="btn"
           :disabled="queued"
           :title="queued ? t('queued') : undefined"
           @click="emit('download', selected)"
@@ -73,7 +73,7 @@ const badge = computed(() => {
           {{ t("download") }}
         </button>
       </template>
-      <p v-else class="caption secondary">
+      <p v-else class="caption text-secondary">
         {{ t(`noBuilds_${channel}`) }}
       </p>
     </div>
@@ -84,46 +84,44 @@ const badge = computed(() => {
 .package {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2, 8px);
-  padding: var(--space-4, 16px);
+  gap: var(--space-2);
+  padding: var(--space-4);
 }
 
 .heading {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2, 8px);
+  gap: var(--space-2);
 }
 
 h3 {
-  font-size: var(--font-size-body, 14px);
-  line-height: var(--line-height-body, 20px);
-  font-weight: var(--weight-semibold, 600);
+  font: var(--type-body-strong);
 }
 
 .badge {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1, 4px);
-  padding: 0 var(--space-2, 8px);
-  border: 1px solid var(--stroke-control, ButtonBorder);
-  border-radius: 999px;
-  color: var(--text-secondary, GrayText);
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--stroke-control);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
 }
 
 .dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--text-tertiary, GrayText);
+  background: var(--text-tertiary);
 }
 
 .badge.supported .dot {
-  background: var(--success, #0f7b0f);
+  background: var(--success);
 }
 
 .badge.unsupported .dot {
-  background: var(--warning, #9d5d00);
+  background: var(--warning);
 }
 
 .description {
@@ -137,9 +135,9 @@ h3 {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2, 8px);
+  gap: var(--space-2);
   margin-top: auto;
-  padding-top: var(--space-2, 8px);
+  padding-top: var(--space-2);
 }
 
 .actions select {

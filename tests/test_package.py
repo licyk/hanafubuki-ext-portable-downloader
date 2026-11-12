@@ -3,6 +3,8 @@ the built page under the frame's policy, and the archive ``scripts/package.py`` 
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import re
 import subprocess
@@ -19,6 +21,7 @@ else:  # the backend runs on 3.10 too; its tests read TOML with tomli there
 
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = tomllib.loads((ROOT / "hanafubuki-extension.toml").read_text(encoding="utf-8"))
+RELEASES = "https://github.com/licyk/hanafubuki-ext-portable-downloader/releases"
 
 
 def test_a_development_link_finds_no_symlink() -> None:
@@ -42,6 +45,8 @@ def test_every_file_the_manifest_names_exists() -> None:
     assert MANIFEST["id"] == "io.github.licyk.portable-downloader"
     assert backend["sdWebuiAllInOne"] is True
     assert MANIFEST["permissions"] == {"instances": "read", "registerInstances": True}
+    assert MANIFEST["engines"] == {"hanafubuki": ">=0.3.32, <0.4", "api": 1}
+    assert MANIFEST["update"] == {"url": f"{RELEASES}/latest/download/latest.json"}
 
 
 def test_every_settings_message_key_has_both_locales() -> None:
@@ -72,7 +77,11 @@ def test_the_built_page_has_no_inline_script_or_handler() -> None:
     for tag in re.findall(r"<script\b[^>]*>(.*?)</script>", html, re.DOTALL):
         assert tag.strip() == "", "an inline script: the frame's script-src refuses it"
     assert not re.search(r"\son[a-z]+\s*=", html), "an inline event handler"
-    for url in re.findall(r'(?:src|href)="([^"]+)"', html):
+    urls = re.findall(r'(?:src|href)="([^"]+)"', html)
+    # The application's UI kit, which the host serves at the package root, comes
+    # before the page's own stylesheet; everything else is the page's own file.
+    assert urls[0] == "../__hanafubuki/ui.css"
+    for url in urls[1:]:
         assert url.startswith("./"), f"{url} is not relative to the page"
         assert (ROOT / "ui" / url).is_file()
 
@@ -126,3 +135,24 @@ def test_the_archive_holds_the_package_and_no_development_files(tmp_path: Path) 
     for name in names:
         assert not name.startswith(("web/", "tests/", "scripts/", ".")), name
         assert "__pycache__" not in name
+
+
+def test_latest_json_offers_the_archive_as_its_release_publishes_it(tmp_path: Path) -> None:
+    completed = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "package.py"), "--out", str(tmp_path)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    archive = Path(completed.stdout.strip())
+    version = MANIFEST["version"]
+
+    assert json.loads((tmp_path / "latest.json").read_text(encoding="utf-8")) == [
+        {
+            "version": version,
+            "download_url": f"{RELEASES}/download/v{version}/{archive.name}",
+            "sha256": hashlib.sha256(archive.read_bytes()).hexdigest(),
+            "platform": "any",
+            "architecture": "any",
+        }
+    ]

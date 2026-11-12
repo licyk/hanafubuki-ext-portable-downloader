@@ -121,7 +121,7 @@ const zh: Messages = {
 export type MessageKey = keyof Messages;
 export type Translate = (key: MessageKey, values?: Record<string, string | number>) => string;
 
-/** The page's language: the backend's (the application's setting), else the browser's. */
+/** The page's language: the application's (the host's, else the backend's), else the browser's. */
 export function pickLocale(locale: string | undefined, fallback: string): "en" | "zh" {
   const value = locale && locale !== "auto" ? locale : fallback;
   return value.toLowerCase().startsWith("zh") ? "zh" : "en";

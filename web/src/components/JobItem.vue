@@ -3,8 +3,9 @@ import { computed } from "vue";
 import { formatBuildDate, formatBytes, formatPercent, formatSpeed } from "../format";
 import type { MessageKey, Translate } from "../i18n";
 import { isFinished, jobFraction, type Job } from "../model";
+import InfoBar from "./InfoBar.vue";
 
-const props = defineProps<{ job: Job; t: Translate; canNavigate: boolean }>();
+const props = defineProps<{ job: Job; t: Translate }>();
 
 const emit = defineEmits<{
   cancel: [jobId: string];
@@ -47,7 +48,7 @@ const detail = computed(() => {
     <div class="row">
       <div class="text">
         <p class="name">{{ label }}</p>
-        <p class="caption secondary">
+        <p class="caption text-secondary">
           <span :class="{ danger: job.state === 'failed' }" aria-live="polite">{{ t(stateKey) }}</span>
           <template v-if="detail"> · {{ detail }}</template>
         </p>
@@ -55,38 +56,39 @@ const detail = computed(() => {
       <button
         v-if="!finished"
         type="button"
-        class="button small"
+        class="btn btn-sm"
         :disabled="job.cancelling"
         @click="emit('cancel', job.id)"
       >
         {{ t("cancel") }}
       </button>
-      <button v-else type="button" class="button small subtle" @click="emit('remove', job.id)">
+      <button v-else type="button" class="btn btn-sm btn-subtle" @click="emit('remove', job.id)">
         {{ t("remove") }}
       </button>
     </div>
     <div
       v-if="!finished && job.state !== 'queued'"
-      class="bar"
+      class="progress-bar"
       role="progressbar"
       :aria-label="t(stateKey)"
       aria-valuemin="0"
       aria-valuemax="100"
       :aria-valuenow="fraction === null ? undefined : Math.floor(fraction * 100)"
       :class="{ indeterminate: fraction === null }"
+      :data-tone="job.cancelling ? 'muted' : undefined"
     >
-      <div class="fill" :style="{ width: fraction === null ? '30%' : `${fraction * 100}%` }"></div>
+      <span class="progress-bar__fill" :style="fraction === null ? undefined : { width: `${fraction * 100}%` }"></span>
     </div>
-    <p v-if="job.error" class="caption danger message">{{ job.error }}</p>
-    <ul v-if="job.warnings.length" class="caption secondary message warnings">
+    <InfoBar v-if="job.error" severity="error" :message="job.error" />
+    <ul v-if="job.warnings.length" class="caption text-secondary message warnings">
       <li v-for="(warning, index) in job.warnings" :key="index">{{ warning }}</li>
     </ul>
-    <div v-if="canNavigate && job.instances.length" class="instances">
+    <div v-if="job.instances.length" class="instances">
       <button
         v-for="instance in job.instances"
         :key="instance.id"
         type="button"
-        class="button small accent"
+        class="btn btn-sm"
         @click="emit('open', instance.id)"
       >
         {{ t("open", { name: instance.name }) }}
@@ -99,9 +101,9 @@ const detail = computed(() => {
 .job {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2, 8px);
-  padding: var(--space-3, 12px) 0;
-  border-top: 1px solid var(--stroke-divider, ButtonBorder);
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--stroke-divider);
 }
 
 .job:first-child {
@@ -111,7 +113,7 @@ const detail = computed(() => {
 .row {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-2, 8px);
+  gap: var(--space-2);
 }
 
 .text {
@@ -123,58 +125,18 @@ const detail = computed(() => {
   overflow-wrap: anywhere;
 }
 
-.bar {
-  position: relative;
-  height: 4px;
-  overflow: hidden;
-  border-radius: 2px;
-  background: var(--fill-well, ButtonFace);
-}
-
-.fill {
-  height: 100%;
-  border-radius: 2px;
-  background: var(--accent-fill, AccentColor);
-  transition: width 200ms linear;
-}
-
-.indeterminate .fill {
-  animation: slide 1.4s ease-in-out infinite;
-}
-
-@keyframes slide {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(340%);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .fill {
-    transition: none;
-  }
-
-  .indeterminate .fill {
-    animation: none;
-    width: 100% !important;
-    opacity: 0.4;
-  }
-}
-
 .message {
   overflow-wrap: anywhere;
 }
 
 .warnings {
   margin: 0;
-  padding-left: var(--space-4, 16px);
+  padding-left: var(--space-4);
 }
 
 .instances {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2, 8px);
+  gap: var(--space-2);
 }
 </style>

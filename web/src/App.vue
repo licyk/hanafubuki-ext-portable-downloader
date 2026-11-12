@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
+import ChoiceTabs from "./components/ChoiceTabs.vue";
+import InfoBar from "./components/InfoBar.vue";
 import JobItem from "./components/JobItem.vue";
 import PackageCard from "./components/PackageCard.vue";
 import { useDownloader } from "./downloader";
@@ -10,9 +12,11 @@ import { type Channel, filterPackages, isFinished, isQueued, type Source, sortPa
 const downloader = useDownloader();
 const { state, packages, packagesLoaded, source, channel, error, jobs } = downloader;
 
-const locale = computed(() => pickLocale(state.value?.locale, navigator.language));
+// The frame client sets the root's `lang` to the application's language.
+const locale = computed(() =>
+  pickLocale(downloader.locale.value ?? state.value?.locale, navigator.language),
+);
 const t = computed(() => translator(locale.value));
-watch(locale, (value) => (document.documentElement.lang = value), { immediate: true });
 watch(t, (translate) => (document.title = translate("title")), { immediate: true });
 
 const query = ref("");
@@ -40,7 +44,9 @@ const sources: { value: Source; label: string }[] = [
   { value: "modelscope", label: "ModelScope" },
   { value: "huggingface", label: "Hugging Face" },
 ];
-const channels: Channel[] = ["nightly", "stable"];
+const channels = computed(() =>
+  (["nightly", "stable"] as Channel[]).map((value) => ({ value, label: t.value(value) })),
+);
 
 const catalog = computed(() => state.value?.catalog);
 const visible = computed(() => sortPackages(filterPackages(packages.value, query.value), channel.value));
@@ -95,11 +101,11 @@ onMounted(downloader.start);
     <header class="header">
       <div class="titles">
         <h1>{{ t("title") }}</h1>
-        <p class="secondary">{{ t("subtitle") }}</p>
+        <p class="text-secondary">{{ t("subtitle") }}</p>
       </div>
       <button
         type="button"
-        class="button"
+        class="btn"
         :disabled="catalog?.status === 'loading'"
         @click="downloader.refresh()"
       >
@@ -107,37 +113,50 @@ onMounted(downloader.start);
       </button>
     </header>
 
-    <p v-if="error" class="banner danger" role="alert">{{ error }}</p>
+    <InfoBar v-if="error" severity="error" :message="error" />
 
-    <section class="card options" :aria-label="t('folder')">
+    <section class="surface-card options" :aria-label="t('folder')">
       <div class="folder">
         <label for="folder">{{ t("folder") }}</label>
         <div class="folder-row">
           <input
             id="folder"
             v-model="folder"
-            class="field"
+            class="text-input"
             type="text"
             spellcheck="false"
             autocomplete="off"
             aria-describedby="folder-help"
             @input="folderEdited = true"
           />
-          <button v-if="downloader.canPickDirectory" type="button" class="button" @click="choose">
+          <button type="button" class="btn" @click="choose">
             {{ t("choose") }}
           </button>
         </div>
-        <p id="folder-help" class="caption secondary">{{ t("folderHelp") }}</p>
+        <p id="folder-help" class="field-help">{{ t("folderHelp") }}</p>
       </div>
       <div class="checks">
-        <label class="check">
-          <input v-model="autoExtract" type="checkbox" />
-          {{ t("autoExtract") }}
-        </label>
-        <label class="check">
-          <input v-model="deleteArchive" type="checkbox" :disabled="!autoExtract" />
-          {{ t("deleteArchive") }}
-        </label>
+        <span class="check-row">
+          <input
+            id="auto-extract"
+            v-model="autoExtract"
+            class="checkbox"
+            type="checkbox"
+            aria-labelledby="auto-extract-label"
+          />
+          <label id="auto-extract-label" for="auto-extract">{{ t("autoExtract") }}</label>
+        </span>
+        <span class="check-row">
+          <input
+            id="delete-archive"
+            v-model="deleteArchive"
+            class="checkbox"
+            type="checkbox"
+            :disabled="!autoExtract"
+            aria-labelledby="delete-archive-label"
+          />
+          <label id="delete-archive-label" for="delete-archive">{{ t("deleteArchive") }}</label>
+        </span>
       </div>
     </section>
 
@@ -147,44 +166,34 @@ onMounted(downloader.start);
           <h2 id="packages-title" class="visually-hidden">{{ t("packages") }}</h2>
           <input
             v-model="query"
-            class="field search"
+            class="text-input search"
             type="search"
             :placeholder="t('search')"
             :aria-label="t('search')"
           />
-          <fieldset class="segmented">
-            <legend class="visually-hidden">{{ t("source") }}</legend>
-            <label v-for="option in sources" :key="option.value">
-              <input v-model="source" type="radio" name="source" :value="option.value" />
-              <span>{{ option.label }}</span>
-            </label>
-          </fieldset>
-          <fieldset class="segmented">
-            <legend class="visually-hidden">{{ t("channel") }}</legend>
-            <label v-for="option in channels" :key="option">
-              <input v-model="channel" type="radio" name="channel" :value="option" />
-              <span>{{ t(option) }}</span>
-            </label>
-          </fieldset>
+          <ChoiceTabs v-model="source" :label="t('source')" :options="sources" />
+          <ChoiceTabs v-model="channel" :label="t('channel')" :options="channels" />
         </div>
-        <p class="caption secondary notes">
+        <p class="caption text-secondary notes">
           <span>{{ gpuNote }}</span>
           <span v-if="catalogNote">{{ catalogNote }}</span>
         </p>
 
-        <p v-if="catalog?.error && catalog.status !== 'loading'" class="caption danger" role="status">
-          {{ t("loadFailed", { error: catalog.error }) }}
-        </p>
-        <div v-if="!packagesLoaded || (catalog?.status === 'loading' && packages.length === 0)" class="empty secondary" role="status">
+        <InfoBar
+          v-if="catalog?.error && catalog.status !== 'loading'"
+          severity="error"
+          :message="t('loadFailed', { error: catalog.error })"
+        />
+        <div v-if="!packagesLoaded || (catalog?.status === 'loading' && packages.length === 0)" class="empty text-secondary" role="status">
           {{ t("loading") }}
         </div>
-        <div v-else-if="packages.length === 0" class="empty secondary">
+        <div v-else-if="packages.length === 0" class="empty text-secondary">
           <p>{{ t("noPackages", { platform: platformName }) }}</p>
-          <button v-if="catalog?.status === 'failed'" type="button" class="button" @click="downloader.refresh()">
+          <button v-if="catalog?.status === 'failed'" type="button" class="btn" @click="downloader.refresh()">
             {{ t("retry") }}
           </button>
         </div>
-        <p v-else-if="visible.length === 0" class="empty secondary">
+        <p v-else-if="visible.length === 0" class="empty text-secondary">
           {{ t("noMatch", { query }) }}
         </p>
         <div v-else class="grid">
@@ -200,26 +209,25 @@ onMounted(downloader.start);
         </div>
       </section>
 
-      <section class="card queue" aria-labelledby="queue-title">
+      <section class="surface-card queue" aria-labelledby="queue-title">
         <div class="queue-header">
           <h2 id="queue-title">{{ t("downloads") }}</h2>
           <button
             v-if="hasFinished"
             type="button"
-            class="button small subtle"
+            class="btn btn-subtle btn-sm"
             @click="downloader.clearFinished()"
           >
             {{ t("clearFinished") }}
           </button>
         </div>
-        <p v-if="jobs.length === 0" class="caption secondary">{{ t("noJobs") }}</p>
+        <p v-if="jobs.length === 0" class="caption text-secondary">{{ t("noJobs") }}</p>
         <ul v-else class="jobs">
           <JobItem
             v-for="job in jobs"
             :key="job.id"
             :job="job"
             :t="t"
-            :can-navigate="downloader.canNavigate"
             @cancel="downloader.cancel"
             @remove="downloader.remove"
             @open="downloader.openInstance"
@@ -234,86 +242,61 @@ onMounted(downloader.start);
 .page {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4, 16px);
-  padding: var(--space-6, 24px);
+  gap: var(--space-4);
+  padding: var(--space-6);
 }
 
 .header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--space-4, 16px);
+  gap: var(--space-4);
 }
 
 .titles {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1, 4px);
+  gap: var(--space-1);
 }
 
 h1 {
-  font-size: var(--font-size-title, 28px);
-  line-height: var(--line-height-title, 36px);
-  font-weight: var(--weight-semibold, 600);
+  font: var(--type-title);
 }
 
 h2 {
-  font-size: var(--font-size-subtitle, 20px);
-  line-height: var(--line-height-subtitle, 28px);
-  font-weight: var(--weight-semibold, 600);
-}
-
-.banner {
-  padding: var(--space-2, 8px) var(--space-3, 12px);
-  border: 1px solid currentColor;
-  border-radius: var(--radius-control, 4px);
+  font: var(--type-subtitle);
 }
 
 .options {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: var(--space-4, 16px);
-  padding: var(--space-4, 16px);
+  gap: var(--space-4);
+  padding: var(--space-4);
 }
 
 .folder {
   display: flex;
   flex: 1 1 360px;
   flex-direction: column;
-  gap: var(--space-1, 4px);
+  gap: var(--space-1);
 }
 
 .folder-row {
   display: flex;
-  gap: var(--space-2, 8px);
-}
-
-.folder-row input {
-  flex: 1;
+  gap: var(--space-2);
 }
 
 .checks {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2, 8px);
-}
-
-.check {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2, 8px);
-}
-
-.check input {
-  margin: 0;
-  accent-color: var(--accent-fill, AccentColor);
+  gap: var(--space-2);
 }
 
 .columns {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-4, 16px);
+  gap: var(--space-4);
   align-items: start;
 }
 
@@ -324,97 +307,54 @@ h2 {
 
   .queue {
     position: sticky;
-    top: var(--space-4, 16px);
+    top: var(--space-4);
   }
 }
 
 .catalog {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3, 12px);
+  gap: var(--space-3);
 }
 
 .toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2, 8px);
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
 }
 
 .search {
   flex: 1 1 200px;
-}
-
-.segmented {
-  display: inline-flex;
-  margin: 0;
-  padding: 2px;
-  border: 1px solid var(--stroke-control, ButtonBorder);
-  border-radius: var(--radius-control, 4px);
-  background: var(--fill-control, ButtonFace);
-}
-
-.segmented label {
-  position: relative;
-  display: inline-flex;
-}
-
-.segmented input {
-  position: absolute;
-  opacity: 0;
-  inset: 0;
-  margin: 0;
-}
-
-.segmented span {
-  display: inline-flex;
-  align-items: center;
-  min-height: calc(var(--control-height-md, 32px) - 6px);
-  padding: 0 var(--space-3, 12px);
-  border-radius: var(--radius-small, 2px);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.segmented label:hover span {
-  background: var(--fill-subtle-hover, ButtonFace);
-}
-
-.segmented input:checked + span {
-  background: var(--accent-fill, AccentColor);
-  color: var(--text-on-accent, AccentColorText);
-}
-
-.segmented input:focus-visible + span {
-  outline: 2px solid var(--focus-stroke-outer, Highlight);
-  outline-offset: 1px;
+  width: auto;
 }
 
 .notes {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  gap: var(--space-2, 8px);
+  gap: var(--space-2);
 }
 
 .empty {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--space-3, 12px);
-  padding: var(--space-6, 24px) 0;
+  gap: var(--space-3);
+  padding: var(--space-6) 0;
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: var(--space-3, 12px);
+  gap: var(--space-3);
 }
 
 .queue {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2, 8px);
-  padding: var(--space-4, 16px);
+  gap: var(--space-2);
+  padding: var(--space-4);
   /* Above the long package list in one column, beside it in two. */
   order: -1;
 }
@@ -429,7 +369,7 @@ h2 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-2, 8px);
+  gap: var(--space-2);
 }
 
 .jobs {
