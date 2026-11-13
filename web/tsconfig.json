@@ -13,7 +13,10 @@
     "isolatedModules": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "paths": { "@hanafubuki/frame": ["./hanafubuki/frame.d.ts"] }
+    "paths": {
+      "@hanafubuki/frame": ["./hanafubuki/frame.d.ts"],
+      "@hanafubuki/ui": ["./hanafubuki/ui.d.ts"]
+    }
   },
   "include": ["src/**/*.ts", "src/**/*.vue", "vite.config.ts"]
 }

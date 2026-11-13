@@ -1,7 +1,8 @@
 /*
- * The application's UI kit (`__hanafubuki/ui.css`, linked by index.html) draws
+ * The application's UI kit (`__hanafubuki/ui.css`) and its components
+ * (`__hanafubuki/ui.js` with `ui-components.css`, linked by index.html) draw
  * the controls, cards, type, colours and scrollbar, and the frame client applies
- * the theme to them. This is what the kit has no class for.
+ * the theme to them. This is what neither has a class for.
  */
 body {
   margin: 0;
@@ -13,22 +14,6 @@ body {
 
 .danger {
   color: var(--danger);
-}
-
-/* A `<select>`, which the kit's class API does not cover, drawn as its fields are. */
-.select {
-  min-width: 0;
-  min-height: var(--control-height-md);
-  padding: 0 var(--space-2);
-  border: 1px solid var(--stroke-control);
-  border-bottom-color: var(--stroke-control-strong);
-  border-radius: var(--radius-control);
-  background: var(--fill-control);
-  color: var(--text-primary);
-}
-
-.select:hover:not(:disabled) {
-  background: var(--fill-control-hover);
 }
 
 .visually-hidden {

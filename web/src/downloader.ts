@@ -99,7 +99,6 @@ export function useDownloader() {
     cancel: (jobId: string) => act("cancel", { jobId }),
     remove: (jobId: string) => act("remove", { jobId }),
     clearFinished: () => act("clearFinished", {}),
-    pickDirectory: (title: string) => frame.pickDirectory({ title }),
     openInstance: (instanceId: string) =>
       frame.navigateInstance(instanceId).catch((failure: unknown) => {
         error.value = message(failure);

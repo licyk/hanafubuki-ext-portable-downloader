@@ -1,15 +1,25 @@
 <script setup lang="ts">
+import {
+  BaseInput,
+  BaseTabs,
+  EmptyState,
+  FormField,
+  InfoBar,
+  PathInput,
+  RefreshButton,
+  useUiStrings,
+} from "@hanafubuki/ui";
 import { computed, onMounted, ref, watch } from "vue";
-import ChoiceTabs from "./components/ChoiceTabs.vue";
-import InfoBar from "./components/InfoBar.vue";
 import JobItem from "./components/JobItem.vue";
 import PackageCard from "./components/PackageCard.vue";
 import { useDownloader } from "./downloader";
 import { formatUpdateTime } from "./format";
+import { useLastMessage } from "./held";
 import { type MessageKey, pickLocale, translator } from "./i18n";
 import { type Channel, filterPackages, isFinished, isQueued, type Source, sortPackages } from "./model";
 
 const downloader = useDownloader();
+const uiStrings = useUiStrings();
 const { state, packages, packagesLoaded, source, channel, error, jobs } = downloader;
 
 // The frame client sets the root's `lang` to the application's language.
@@ -40,17 +50,24 @@ watch(
   },
 );
 
-const sources: { value: Source; label: string }[] = [
+const sources = [
   { value: "modelscope", label: "ModelScope" },
   { value: "huggingface", label: "Hugging Face" },
 ];
 const channels = computed(() =>
-  (["nightly", "stable"] as Channel[]).map((value) => ({ value, label: t.value(value) })),
+  (["nightly", "stable"] as const).map((value) => ({ value, label: t.value(value) })),
 );
 
 const catalog = computed(() => state.value?.catalog);
 const visible = computed(() => sortPackages(filterPackages(packages.value, query.value), channel.value));
 const hasFinished = computed(() => jobs.value.some(isFinished));
+const catalogError = computed(() =>
+  catalog.value?.error && catalog.value.status !== "loading"
+    ? t.value("loadFailed", { error: catalog.value.error })
+    : null,
+);
+const errorText = useLastMessage(() => error.value);
+const catalogErrorText = useLastMessage(() => catalogError.value);
 
 const catalogNote = computed(() => {
   const value = catalog.value;
@@ -75,12 +92,9 @@ function queued(filename: string): boolean {
   return isQueued(jobs.value, filename, folder.value.trim());
 }
 
-async function choose() {
-  const picked = await downloader.pickDirectory(t.value("chooseTitle"));
-  if (picked) {
-    folder.value = picked;
-    folderEdited = true;
-  }
+function editFolder(value: string | null) {
+  folder.value = value ?? "";
+  folderEdited = true;
 }
 
 function download(key: string, filename: string) {
@@ -103,38 +117,26 @@ onMounted(downloader.start);
         <h1>{{ t("title") }}</h1>
         <p class="text-secondary">{{ t("subtitle") }}</p>
       </div>
-      <button
-        type="button"
-        class="btn"
-        :disabled="catalog?.status === 'loading'"
+      <RefreshButton
+        :label="t('refresh')"
+        :busy="catalog?.status === 'loading'"
         @click="downloader.refresh()"
-      >
-        {{ t("refresh") }}
-      </button>
+      />
     </header>
 
-    <InfoBar v-if="error" severity="error" :message="error" />
+    <InfoBar severity="error" :open="Boolean(error)" :message="errorText" />
 
     <section class="surface-card options" :aria-label="t('folder')">
-      <div class="folder">
-        <label for="folder">{{ t("folder") }}</label>
-        <div class="folder-row">
-          <input
-            id="folder"
-            v-model="folder"
-            class="text-input"
-            type="text"
-            spellcheck="false"
-            autocomplete="off"
-            aria-describedby="folder-help"
-            @input="folderEdited = true"
+      <FormField class="folder" :label="t('folder')" :hint="t('folderHelp')">
+        <template #default="{ controlId }">
+          <PathInput
+            :id="controlId"
+            :model-value="folder"
+            :browse-label="uiStrings.t('common.actions.browseDirectory')"
+            @update:model-value="editFolder"
           />
-          <button type="button" class="btn" @click="choose">
-            {{ t("choose") }}
-          </button>
-        </div>
-        <p id="folder-help" class="field-help">{{ t("folderHelp") }}</p>
-      </div>
+        </template>
+      </FormField>
       <div class="checks">
         <span class="check-row">
           <input
@@ -164,38 +166,49 @@ onMounted(downloader.start);
       <section class="catalog" aria-labelledby="packages-title">
         <div class="toolbar">
           <h2 id="packages-title" class="visually-hidden">{{ t("packages") }}</h2>
-          <input
-            v-model="query"
-            class="text-input search"
+          <BaseInput
+            class="search"
             type="search"
+            :model-value="query"
             :placeholder="t('search')"
             :aria-label="t('search')"
+            @update:model-value="query = String($event ?? '')"
           />
-          <ChoiceTabs v-model="source" :label="t('source')" :options="sources" />
-          <ChoiceTabs v-model="channel" :label="t('channel')" :options="channels" />
+          <BaseTabs
+            class="filter"
+            selection-mode="radio"
+            :label="t('source')"
+            :items="sources"
+            :model-value="source"
+            @update:model-value="source = $event as Source"
+          />
+          <BaseTabs
+            class="filter"
+            selection-mode="radio"
+            :label="t('channel')"
+            :items="channels"
+            :model-value="channel"
+            @update:model-value="channel = $event as Channel"
+          />
         </div>
         <p class="caption text-secondary notes">
           <span>{{ gpuNote }}</span>
           <span v-if="catalogNote">{{ catalogNote }}</span>
         </p>
 
-        <InfoBar
-          v-if="catalog?.error && catalog.status !== 'loading'"
-          severity="error"
-          :message="t('loadFailed', { error: catalog.error })"
+        <InfoBar severity="error" :open="Boolean(catalogError)" :message="catalogErrorText" />
+        <EmptyState
+          v-if="!packagesLoaded || (catalog?.status === 'loading' && packages.length === 0)"
+          :text="t('loading')"
         />
-        <div v-if="!packagesLoaded || (catalog?.status === 'loading' && packages.length === 0)" class="empty text-secondary" role="status">
-          {{ t("loading") }}
-        </div>
-        <div v-else-if="packages.length === 0" class="empty text-secondary">
-          <p>{{ t("noPackages", { platform: platformName }) }}</p>
-          <button v-if="catalog?.status === 'failed'" type="button" class="btn" @click="downloader.refresh()">
-            {{ t("retry") }}
-          </button>
-        </div>
-        <p v-else-if="visible.length === 0" class="empty text-secondary">
-          {{ t("noMatch", { query }) }}
-        </p>
+        <EmptyState v-else-if="packages.length === 0" :text="t('noPackages', { platform: platformName })">
+          <template v-if="catalog?.status === 'failed'" #action>
+            <button type="button" class="btn" @click="downloader.refresh()">
+              {{ t("retry") }}
+            </button>
+          </template>
+        </EmptyState>
+        <EmptyState v-else-if="visible.length === 0" :text="t('noMatch', { query })" />
         <div v-else class="grid">
           <PackageCard
             v-for="pkg in visible"
@@ -276,15 +289,7 @@ h2 {
 }
 
 .folder {
-  display: flex;
   flex: 1 1 360px;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.folder-row {
-  display: flex;
-  gap: var(--space-2);
 }
 
 .checks {
@@ -325,8 +330,12 @@ h2 {
 }
 
 .search {
-  flex: 1 1 200px;
-  width: auto;
+  flex: 1 1 100%;
+}
+
+/* The tabs take the width they are given (they fold what does not fit), so each gets a share. */
+.filter {
+  flex: 1 1 240px;
 }
 
 .notes {
@@ -334,14 +343,6 @@ h2 {
   flex-wrap: wrap;
   justify-content: space-between;
   gap: var(--space-2);
-}
-
-.empty {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-6) 0;
 }
 
 .grid {
