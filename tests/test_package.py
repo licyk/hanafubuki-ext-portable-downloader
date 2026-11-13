@@ -45,7 +45,7 @@ def test_every_file_the_manifest_names_exists() -> None:
     assert MANIFEST["id"] == "io.github.licyk.portable-downloader"
     assert backend["sdWebuiAllInOne"] is True
     assert MANIFEST["permissions"] == {"instances": "read", "registerInstances": True}
-    assert MANIFEST["engines"] == {"hanafubuki": ">=0.3.32, <0.4", "api": 1}
+    assert MANIFEST["engines"] == {"hanafubuki": ">=0.3.34, <0.4", "api": 1}
     assert MANIFEST["update"] == {"url": f"{RELEASES}/latest/download/latest.json"}
 
 
@@ -78,26 +78,37 @@ def test_the_built_page_has_no_inline_script_or_handler() -> None:
         assert tag.strip() == "", "an inline script: the frame's script-src refuses it"
     assert not re.search(r"\son[a-z]+\s*=", html), "an inline event handler"
     urls = re.findall(r'(?:src|href)="([^"]+)"', html)
-    # The application's UI kit, which the host serves at the package root, comes
-    # before the page's own stylesheet; everything else is the page's own file.
-    assert urls[0] == "../__hanafubuki/ui.css"
-    for url in urls[1:]:
+    # The application's UI kit and its components' styles, which the host serves
+    # at the package root, come before the page's own stylesheet; everything else
+    # is the page's own file.
+    assert urls[:2] == ["../__hanafubuki/ui.css", "../__hanafubuki/ui-components.css"]
+    for url in urls[2:]:
         assert url.startswith("./"), f"{url} is not relative to the page"
         assert (ROOT / "ui" / url).is_file()
 
 
-def test_the_frame_client_resolves_to_the_package_root() -> None:
-    # The host serves the client at `<package root>/__hanafubuki/frame.js`; a module
-    # specifier resolves against the chunk that imports it.
+def _resolve(importer: str, specifier: str) -> str:
+    """A relative module specifier resolved against the module that imports it."""
+    resolved = PurePosixPath(importer).parent / specifier
+    return os.path.normpath(str(resolved)).replace(os.sep, "/")
+
+
+def test_the_host_modules_resolve_to_the_package_root() -> None:
+    # The host serves the frame client, the component bundle and Vue at
+    # `<package root>/__hanafubuki/`. The page imports Vue at the very URL the
+    # bundle does (`./vue.js` beside `ui.js`), so the two share one runtime, and
+    # carries no Vue of its own: a bare `vue` specifier would not even load.
+    shared_vue = _resolve("__hanafubuki/ui.js", "./vue.js")
     imports = []
     for path in _page_files():
         if path.suffix == ".js":
-            for specifier in re.findall(
-                r'from\s*"([^"]*__hanafubuki[^"]*)"', path.read_text(encoding="utf-8")
-            ):
-                resolved = PurePosixPath("ui", path.name).parent / specifier
-                imports.append(os.path.normpath(str(resolved)).replace(os.sep, "/"))
-    assert imports and set(imports) == {"__hanafubuki/frame.js"}
+            text = path.read_text(encoding="utf-8")
+            for specifier in re.findall(r'(?:\bfrom|\bimport)\s*\(?\s*"([^"]+)"', text):
+                assert specifier.startswith(("./", "../")), f"{path.name} imports {specifier}"
+                imports.append(_resolve(f"ui/{path.name}", specifier))
+            assert "__v_isRef" not in text, f"{path.name} bundles a copy of Vue"
+    host = {name for name in imports if name.startswith("__hanafubuki/")}
+    assert host == {"__hanafubuki/frame.js", "__hanafubuki/ui.js", shared_vue}
 
 
 def test_the_built_page_neither_fetches_nor_stores() -> None:

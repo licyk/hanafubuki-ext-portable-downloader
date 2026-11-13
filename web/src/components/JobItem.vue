@@ -1,9 +1,9 @@
 <script setup lang="ts">
+import { InfoBar, ProgressBar } from "@hanafubuki/ui";
 import { computed } from "vue";
 import { formatBuildDate, formatBytes, formatPercent, formatSpeed } from "../format";
 import type { MessageKey, Translate } from "../i18n";
 import { isFinished, jobFraction, type Job } from "../model";
-import InfoBar from "./InfoBar.vue";
 
 const props = defineProps<{ job: Job; t: Translate }>();
 
@@ -66,20 +66,13 @@ const detail = computed(() => {
         {{ t("remove") }}
       </button>
     </div>
-    <div
+    <ProgressBar
       v-if="!finished && job.state !== 'queued'"
-      class="progress-bar"
-      role="progressbar"
-      :aria-label="t(stateKey)"
-      aria-valuemin="0"
-      aria-valuemax="100"
-      :aria-valuenow="fraction === null ? undefined : Math.floor(fraction * 100)"
-      :class="{ indeterminate: fraction === null }"
-      :data-tone="job.cancelling ? 'muted' : undefined"
-    >
-      <span class="progress-bar__fill" :style="fraction === null ? undefined : { width: `${fraction * 100}%` }"></span>
-    </div>
-    <InfoBar v-if="job.error" severity="error" :message="job.error" />
+      :label="t(stateKey)"
+      :value="fraction === null ? null : fraction * 100"
+      :tone="job.cancelling ? 'muted' : undefined"
+    />
+    <InfoBar severity="error" :open="Boolean(job.error)" :message="job.error ?? ''" />
     <ul v-if="job.warnings.length" class="caption text-secondary message warnings">
       <li v-for="(warning, index) in job.warnings" :key="index">{{ warning }}</li>
     </ul>

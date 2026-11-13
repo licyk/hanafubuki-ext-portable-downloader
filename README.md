@@ -30,16 +30,17 @@ as an instance you can open right away.
   the folder you chose, optionally deleted, and the extracted package is
   registered with the application's discovery. **Open** takes you to the new
   instance.
-- **Native look**: the page draws with Hanafubuki's own controls (the UI kit
-  the application serves to frames): its buttons, fields, tabs, cards, info
-  bars, progress bars, scrollbar and typeface, in the application's theme,
-  accent and language.
+- **Native look**: the page is built from Hanafubuki's own Vue components
+  (the component bundle the application serves to frames) and its UI kit: its
+  dropdowns, tabs, path field, form fields, info bars, progress bars, status
+  badges, tooltips, buttons, cards, scrollbar and typeface, in the
+  application's theme, accent and language.
 - **Updates**: Hanafubuki checks this extension's GitHub releases for a newer
   version ([Updates](#updates)).
 
 ## Requirements
 
-Hanafubuki **0.3.32 or later, before 0.4** (`engines.hanafubuki`), with:
+Hanafubuki **0.3.34 or later, before 0.4** (`engines.hanafubuki`), with:
 
 - Python backends that import `sd_webui_all_in_one` (`[backend] sdWebuiAllInOne`);
 - the `registerInstances` permission and the `instances.scan` host method;
@@ -47,6 +48,8 @@ Hanafubuki **0.3.32 or later, before 0.4** (`engines.hanafubuki`), with:
 - the `pages` slot for frames;
 - the frame client's `pickDirectory()`, `navigateInstance()` and `locale()`,
   and the frame UI kit (`__hanafubuki/ui.css`);
+- the frame component bundle, UI API 1 (`__hanafubuki/ui.js` with
+  `vue.js` and `ui-components.css`), added in 0.3.34;
 - `[update]` in the manifest.
 
 The backend's Python requirements are installed by the application into the
@@ -103,7 +106,7 @@ once by hand.
 1. Open **Portable packages** from the title bar's **Extension pages** menu.
 2. Pick the source and channel, search, and choose a version.
 3. Check the download folder (by default the extension's setting, or the
-   application's instances folder) or press **Choose…**. Each package goes into
+   application's instances folder) or press its **Browse** button. Each package goes into
    its own folder there.
 4. Press **Download**. The queue shows each job's progress; **Cancel** stops
    it (a cancelled download resumes if you queue it again).
@@ -140,26 +143,47 @@ npm run build        # writes ../ui
 The page runs in a sandboxed frame with an opaque origin and the policy
 `script-src` its package only, `connect-src 'none'`: it has no inline script,
 uses relative URLs, never fetches (everything goes through the frame client's
-`call`, `state` and `onState`) and stores nothing. The frame client is imported
-as `@hanafubuki/frame`, which the build leaves external as
-`../__hanafubuki/frame.js` (the host serves it at the package root).
+`call`, `state` and `onState`) and stores nothing. The host serves three modules
+at the package root, and the build leaves each import external, written relative
+to the built chunk in `ui/`:
 
-It links the application's UI kit, `../__hanafubuki/ui.css` (served beside the
-client), before its own stylesheet; Vite leaves the link as it is. It draws with
-the kit's classes (class API 1): `btn`, `text-input`, `checkbox`/`check-row`,
-`field-help`, `tabs`/`tab` (the source and channel, a radio group whose chosen
-tab is `aria-checked`, with the arrow keys of a native one), `surface-card`,
-`info-bar`, `progress-bar`, `text-secondary`. `web/src/style.css` keeps only
-what the kit has no class for: the `<select>`, a caption, a hidden heading.
+| Import | Built as | What it is |
+| --- | --- | --- |
+| `@hanafubuki/frame` | `../__hanafubuki/frame.js` | the frame client |
+| `@hanafubuki/ui` | `../__hanafubuki/ui.js` | the component bundle (UI API 1) |
+| `vue` | `../__hanafubuki/vue.js` | Vue's runtime-only build, the application's |
+
+`ui.js` imports Vue as `./vue.js`, the same URL, so the page and the components
+share one Vue runtime; the page ships no Vue of its own, and its templates are
+compiled at build time (the runtime has no compiler, and the frame's policy
+allows no `eval`). `web/package.json` pins `vue` to the application's version
+(3.5.44 in Hanafubuki 0.3.34), which compiles the templates and types the
+components. `main.ts` installs `frameUi` on the app with the frame
+client, whose `pickDirectory` it wraps to title the folder dialog.
+
+It links the application's UI kit, `../__hanafubuki/ui.css`, then the
+components' styles, `../__hanafubuki/ui-components.css`, before its own
+stylesheet; Vite leaves the links as they are. The page uses the bundle's
+`BaseDropdown` (a package's version, the build's size as its alias), `BaseTabs`
+(the source and channel, `selection-mode="radio"`), `BaseInput` (the search),
+`PathInput` and `FormField` (the download folder, a version), `InfoBar`,
+`EmptyState`, `ProgressBar`, `StatusBadge` (a package's GPU), `Tooltip` and
+`RefreshButton`, and the kit's classes for what the bundle has no component
+for: `btn`, `checkbox`/`check-row` (the two options), `surface-card`,
+`text-secondary`. `web/src/style.css` keeps only a caption, the danger colour of
+a failed job and a hidden heading.
 As a page (the `pages` slot) it takes the whole content area and scrolls its
 own document; nothing in its CSS sizes the document or clips it. It follows the
 application's language (`locale()`), falling back to the backend's.
 
-`web/hanafubuki/frame.d.ts` is the frame client's typings, an unedited copy of
-Hanafubuki's `sdk/frame/frame.d.ts` (the SDK is not published as a package, and
-the page must build from this repository alone); `tsconfig.json` maps the
-`@hanafubuki/frame` import to it. Refresh it from a Hanafubuki checkout when the
-client changes: `cp ../Hanafubuki/sdk/frame/frame.d.ts web/hanafubuki/frame.d.ts`.
+`web/hanafubuki/frame.d.ts` and `web/hanafubuki/ui.d.ts` are the frame client's
+and the component bundle's typings, unedited copies of Hanafubuki's
+`sdk/frame/frame.d.ts` and `sdk/ui/ui.d.ts` (the SDK is not published as a
+package, and the page must build from this repository alone); `tsconfig.json`
+maps the `@hanafubuki/frame` and `@hanafubuki/ui` imports to them, and `vue` in
+`ui.d.ts` resolves to `web/node_modules/vue`. Refresh them from a Hanafubuki
+checkout when the host changes:
+`cp ../Hanafubuki/sdk/frame/frame.d.ts ../Hanafubuki/sdk/ui/ui.d.ts web/hanafubuki/`.
 
 **The backend's tests** need the Python SDK and sd_webui_all_in_one on the
 import path, as the application provides them, and `requests` and `py7zr`:
@@ -229,12 +253,14 @@ GPL-3.0-only.
   且能正常运行后才使用；Linux 与 macOS 不会下载，请安装 7-Zip（`7zip` 或 `p7zip-full`
   软件包，或 `brew install sevenzip`）。Linux 与 macOS 的整合包为 `.tar.gz`，无需 7-Zip。
   py7zr 与 7-Zip 都不可用时，7z 整合包会在下载前被拒绝，需关闭“下载后解压”并手动解压。
-- **要求**：Hanafubuki 0.3.32 及以上、0.4 以下，且包含所需的宿主功能
+- **要求**：Hanafubuki 0.3.34 及以上、0.4 以下，且包含所需的宿主功能
   （`sdWebuiAllInOne`、`registerInstances` 与 `instances.scan`、
   `host.info.instancesDir`、`pages` 页面、frame 客户端的 `pickDirectory()`、
-  `navigateInstance()` 与 `locale()`、框架界面套件 `__hanafubuki/ui.css`、`[update]`）。
-- **外观**：页面使用 Hanafubuki 提供给框架的界面套件，按钮、输入框、标签页、卡片、
-  信息栏、进度条、滚动条和字体与应用一致，并跟随应用的主题、强调色和语言。
+  `navigateInstance()` 与 `locale()`、框架界面套件 `__hanafubuki/ui.css`、
+  0.3.34 起提供的框架组件包 `__hanafubuki/ui.js`（UI API 1）、`[update]`）。
+- **外观**：页面由 Hanafubuki 提供给框架的 Vue 组件包和界面套件构成，下拉框、标签页、
+  路径输入框、表单字段、信息栏、进度条、状态标记、工具提示、按钮、卡片、滚动条和字体
+  与应用一致，并跟随应用的主题、强调色和语言。
 - **更新**：清单的 `[update] url` 指向最新 GitHub Release 的 `latest.json`。Hanafubuki
   每天及点击“检查更新”时读取它，有新版本时在扩展卡片上提供更新，但不会自动安装；
   开发链接不检查更新。0.2.0 之前的版本没有更新源，需手动安装一次 0.2.0。

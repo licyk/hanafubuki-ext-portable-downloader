@@ -1,14 +1,16 @@
 schema = 1
 id = "io.github.licyk.portable-downloader"
 name = { en = "Portable package downloader", zh = "整合包下载器" }
-version = "0.2.0"
+version = "0.3.0"
 publisher = "licyk"
 license = "GPL-3.0-only"
 description = { en = "Lists the sd-webui-all-in-one portable packages for this platform, downloads and extracts the one you choose, and registers it as an instance.", zh = "列出适用于当前平台的 sd-webui-all-in-one 整合包，下载并解压所选整合包，然后将其注册为实例。" }
 
 [engines]
-# 0.3.32: the frame UI kit and the frame's `locale()`, and `[update]`.
-hanafubuki = ">=0.3.32, <0.4"
+# 0.3.34: the frame component bundle (`__hanafubuki/ui.js`, UI API 1), which
+# the page draws with; since 0.3.32 the frame UI kit, the frame's `locale()`
+# and `[update]`.
+hanafubuki = ">=0.3.34, <0.4"
 api = 1
 
 # Each release publishes `latest.json` beside its package (scripts/package.py).
